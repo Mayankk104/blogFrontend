@@ -1,5 +1,7 @@
 import React, { Component, Fragment } from 'react';
 import { Route, Switch, Redirect, withRouter } from 'react-router-dom';
+import {toast} from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import Layout from './components/Layout/Layout';
 import Backdrop from './components/Backdrop/Backdrop';
@@ -13,11 +15,14 @@ import LoginPage from './pages/Auth/Login';
 import SignupPage from './pages/Auth/Signup';
 import './App.css';
 
+const API_URL = process.env.REACT_APP_API_URL
+
+
 class App extends Component {
   state = {
     showBackdrop: false,
     showMobileNav: false,
-    isAuth: true,
+    isAuth: false,
     token: null,
     userId: null,
     authLoading: false,
@@ -54,84 +59,53 @@ class App extends Component {
     localStorage.removeItem('token');
     localStorage.removeItem('expiryDate');
     localStorage.removeItem('userId');
+    toast.success('Logout successfuly')
   };
 
-  loginHandler = (event, authData) => {
+  loginHandler = async (event, authData) => {
     event.preventDefault();
     this.setState({ authLoading: true });
-    fetch('URL')
-      .then(res => {
-        if (res.status === 422) {
-          throw new Error('Validation failed.');
-        }
-        if (res.status !== 200 && res.status !== 201) {
-          console.log('Error!');
-          throw new Error('Could not authenticate you!');
-        }
-        return res.json();
-      })
-      .then(resData => {
-        console.log(resData);
-        this.setState({
-          isAuth: true,
-          token: resData.token,
-          authLoading: false,
-          userId: resData.userId
-        });
-        localStorage.setItem('token', resData.token);
-        localStorage.setItem('userId', resData.userId);
-        const remainingMilliseconds = 60 * 60 * 1000;
-        const expiryDate = new Date(
-          new Date().getTime() + remainingMilliseconds
-        );
-        localStorage.setItem('expiryDate', expiryDate.toISOString());
-        this.setAutoLogout(remainingMilliseconds);
-      })
-      .catch(err => {
-        console.log(err);
-        this.setState({
-          isAuth: false,
-          authLoading: false,
-          error: err
-        });
-      });
+    
+    try{
+      
+      const res =  await fetch(`${API_URL}/auth/login`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:authData.email,password:authData.password,}) });
+      // if (res.status !== 200 && res.status !== 201) { throw new Error(res.message) }
+      const resData =  await res.json();
+      if (res.status === 400) { throw new Error(resData.error); }
+      this.setState({ isAuth:true, token: resData.token, authLoading: false, userId: resData.userId });
+  
+      localStorage.setItem('token', resData.token);
+      localStorage.setItem('userId', resData.userId);
+      const remainingMilliseconds = 60 * 60 * 1000;
+      const expiryDate = new Date( new Date().getTime() + remainingMilliseconds );
+      localStorage.setItem('expiryDate', expiryDate.toISOString());
+      this.setAutoLogout(remainingMilliseconds);
+      
+    }catch(err){
+      this.setState({ isAuth:false, authLoading: false, error: err });
+    }
   };
 
-  signupHandler = (event, authData) => {
+  signupHandler = async (event, authData) => {
     event.preventDefault();
     this.setState({ authLoading: true });
-    fetch('URL')
-      .then(res => {
-        if (res.status === 422) {
-          throw new Error(
-            "Validation failed. Make sure the email address isn't used yet!"
-          );
-        }
-        if (res.status !== 200 && res.status !== 201) {
-          console.log('Error!');
-          throw new Error('Creating a user failed!');
-        }
-        return res.json();
-      })
-      .then(resData => {
-        console.log(resData);
-        this.setState({ isAuth: false, authLoading: false });
-        this.props.history.replace('/');
-      })
-      .catch(err => {
-        console.log(err);
-        this.setState({
-          isAuth: false,
-          authLoading: false,
-          error: err
-        });
-      });
+
+    try{
+      const res = await fetch(`${API_URL}/auth/signup`,{ method:'PUT', headers:{ 'Content-Type':'application/json' }, body : JSON.stringify({ email:authData.signupForm.email.value,password : authData.signupForm.password.value,name:authData.signupForm.name.value }) })
+      const resData =  await res.json();
+
+      if (res.status === 400) { throw new Error( resData.error ) }
+      if (res.status !== 200 && res.status !== 201) { throw new Error('Creating a user failed!') }
+      
+      this.setState({ isAuth: false, authLoading: false });
+      this.props.history.replace('/');
+    }catch(err){
+      this.setState({ isAuth: false,authLoading: false, error: err});
+    }
   };
 
   setAutoLogout = milliseconds => {
-    setTimeout(() => {
-      this.logoutHandler();
-    }, milliseconds);
+    setTimeout(() => { this.logoutHandler();}, milliseconds);
   };
 
   errorHandler = () => {
@@ -139,81 +113,48 @@ class App extends Component {
   };
 
   render() {
+
     let routes = (
       <Switch>
-        <Route
-          path="/"
-          exact
-          render={props => (
-            <LoginPage
-              {...props}
-              onLogin={this.loginHandler}
-              loading={this.state.authLoading}
-            />
+        <Route path="/" exact render={ props=>(
+            <LoginPage {...props} onLogin={this.loginHandler} loading={this.state.authLoading}/>
           )}
         />
-        <Route
-          path="/signup"
-          exact
-          render={props => (
-            <SignupPage
-              {...props}
-              onSignup={this.signupHandler}
-              loading={this.state.authLoading}
-            />
+        <Route path="/signup" exact render={ props=>(
+            <SignupPage {...props} onSignup={this.signupHandler} loading={this.state.authLoading} />
           )}
         />
         <Redirect to="/" />
       </Switch>
     );
+
     if (this.state.isAuth) {
       routes = (
         <Switch>
-          <Route
-            path="/"
-            exact
-            render={props => (
+          <Route path="/" exact render={ props=>(
               <FeedPage userId={this.state.userId} token={this.state.token} />
             )}
           />
-          <Route
-            path="/:postId"
-            render={props => (
-              <SinglePostPage
-                {...props}
-                userId={this.state.userId}
-                token={this.state.token}
-              />
+          <Route path="/:postId" render={props=>(
+              <SinglePostPage {...props} userId={this.state.userId} token={this.state.token}/>
             )}
           />
           <Redirect to="/" />
         </Switch>
       );
     }
+
     return (
       <Fragment>
-        {this.state.showBackdrop && (
-          <Backdrop onClick={this.backdropClickHandler} />
-        )}
+        { this.state.showBackdrop && (<Backdrop onClick={this.backdropClickHandler}/>) }
         <ErrorHandler error={this.state.error} onHandle={this.errorHandler} />
-        <Layout
-          header={
+        <Layout header={ 
             <Toolbar>
-              <MainNavigation
-                onOpenMobileNav={this.mobileNavHandler.bind(this, true)}
-                onLogout={this.logoutHandler}
-                isAuth={this.state.isAuth}
-              />
+              <MainNavigation onOpenMobileNav={this.mobileNavHandler.bind(this, true)} onLogout={this.logoutHandler} isAuth={this.state.isAuth}/>
             </Toolbar>
-          }
+            }
           mobileNav={
-            <MobileNavigation
-              open={this.state.showMobileNav}
-              mobile
-              onChooseItem={this.mobileNavHandler.bind(this, false)}
-              onLogout={this.logoutHandler}
-              isAuth={this.state.isAuth}
-            />
+            <MobileNavigation open={this.state.showMobileNav} mobile onChooseItem={this.mobileNavHandler.bind(this, false)} onLogout={this.logoutHandler} isAuth={this.state.isAuth}/>
           }
         />
         {routes}

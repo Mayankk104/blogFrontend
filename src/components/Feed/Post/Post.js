@@ -19,12 +19,9 @@ const post = props => (
       <Button mode="flat" link={props.id}>
         View
       </Button>
-      <Button mode="flat" onClick={props.onStartEdit}>
-        Edit
-      </Button>
-      <Button mode="flat" design="danger" onClick={props.onDelete}>
-        Delete
-      </Button>
+      
+      { props.logingUserId === props.creatorId ?<Button mode="flat" onClick={props.onStartEdit}>Edit</Button> : null }
+      { props.logingUserId === props.creatorId ?<Button mode="flat" design="danger" onClick={props.onDelete}> Delete </Button> : null }
     </div>
   </article>
 );

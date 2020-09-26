@@ -38,3 +38,10 @@
     left: calc((100% - 40rem) / 2);
   }
 }
+
+@media(max-width: 768px){
+  .modal{
+    font-size: .7rem;
+    top:1rem;
+  }
+}
