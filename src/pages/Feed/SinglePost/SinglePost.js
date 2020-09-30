@@ -28,7 +28,7 @@ class SinglePost extends Component {
         resData.post.imageUrl= resData.post.imageUrl.replace(/\\/g,"/");
         this.setState({
           title: resData.post.title,
-          image: `${API_URL}/${resData.post.imageUrl}`,
+          image: `${resData.post.imageUrl}`,
           author: resData.post.creator.name,
           date: new Date(resData.post.createdAt).toLocaleDateString('en-US'),
           content: resData.post.content
